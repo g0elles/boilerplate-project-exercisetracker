@@ -23,7 +23,7 @@ const ExcerciseSchema = new Schema({
   username: String,
   description: String,
   duration: Number,
-  date: Date,
+  date: String,
   _id: String
 }, {
   versionKey: false // You should be aware of the outcome after set to false
@@ -36,7 +36,7 @@ const logSchema = new Schema({
   log: [{
     description: String,
     duration: Number,
-    date: Date
+    date: String
   }]
 }, {
   versionKey: false // You should be aware of the outcome after set to false
@@ -131,16 +131,14 @@ app.post("/api/users/:_id/exercises", async (req, res, next) => {
       response = newExcercise;
     }
 
-    let findLogs = await Logs.findById(Excercise._id);
-
-    if (findLogs) {
-      Logs.findById(Excercise._id, (err, logFound) => {
-        if (err) console.log(err);
-        logFound.log.push(Excercise);
-        logFound.count = logFound.log.length;
-        logFound.save();
-      });
-    }
+    await Logs.findOne({
+      _id: Excercise._id
+    }, (err, logFound) => {
+      if (err) console.log(err);
+      logFound.log.push(Excercise);
+      logFound.count = logFound.log.length;
+      logFound.save();
+    }).clone();
     res.send(Excercise);
     next();
   }
@@ -148,10 +146,25 @@ app.post("/api/users/:_id/exercises", async (req, res, next) => {
 
 app.get("/api/users/:_id/logs", async (req, res, next) => {
   let userId = req.params._id;
-  Logs.findById({
+  let [from, to, limit] = [req.query.from, req.query.to, req.query.limit];
+
+  await Logs.findById({
     _id: userId
   }, (err, data) => {
-    res.send(data);
+    let result = data;
+
+    if (from && to) {
+      let fromDate = new Date(from);
+      let toDate = new Date(to);
+      result._doc.log = result._doc.log.filter(x => isBetweenDates(new Date(x.date), fromDate, toDate));
+    }
+
+    if (limit) {
+      let limiter = limit != undefined ? parseInt(limit) : 0;
+      result._doc.log = result._doc.log.slice(0, limiter > 0 ? limiter : result.log.length);
+    }
+
+    res.send(result);
     next();
   }).clone();
 });
@@ -162,3 +175,7 @@ app.get("/api/users/:_id/logs", async (req, res, next) => {
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
 })
+
+function isBetweenDates(date, from, to) {
+  return (from < date) && (date < to);
+}
