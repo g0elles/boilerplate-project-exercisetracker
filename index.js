@@ -99,17 +99,17 @@ app.post("/api/users/:_id/exercises", async (req, res, next) => {
     username: "",
     description: req.body.description,
     duration: parseInt(req.body.duration),
-    date: req.body.date ? new Date(req.body.date.replace(/-/g, '\/')).toDateString() : new Date().toDateString(),
+    date: req.body.date ? new Date(req.body.date.replace(/-/g, '\/')).toDateString() : changeTimeZone(new Date(), 'America/Los_Angeles').toDateString(),
     _id: req.params._id
   };
+
+  console.log(changeTimeZone(new Date(), 'America/Los_Angeles'));
 
   let exist = await Users.findById({
     _id: Excercise._id
   });
   if (exist) {
     Excercise.username = exist.username;
-    let response;
-
     let CurrentExcercise = await Excercises.findByIdAndUpdate({
       _id: Excercise._id
     }, {
@@ -178,4 +178,20 @@ const listener = app.listen(process.env.PORT || 3000, () => {
 
 function isBetweenDates(date, from, to) {
   return (from < date) && (date < to);
+}
+
+function changeTimeZone(date, timeZone) {
+  if (typeof date === 'string') {
+    return new Date(
+      new Date(date).toLocaleString('en-US', {
+        timeZone,
+      }),
+    );
+  }
+
+  return new Date(
+    date.toLocaleString('en-US', {
+      timeZone,
+    }),
+  );
 }
